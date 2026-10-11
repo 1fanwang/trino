@@ -216,7 +216,7 @@ public final class ScalarFunctionAdapter
             throw new IllegalArgumentException("Instance method cannot be adapted to no instance");
         }
 
-        methodHandle = explicitCastArguments(methodHandle, getCanonicalMethodType(methodHandle.type(), returnType, actualArgumentTypes, actualConvention));
+        methodHandle = methodHandle.asType(getCanonicalMethodType(methodHandle.type(), returnType, actualArgumentTypes, actualConvention));
 
         // adapt return first, since return-null-on-null parameter convention must know if the return type is nullable
         methodHandle = adaptReturn(methodHandle, returnType, actualConvention.getReturnConvention(), expectedConvention.getReturnConvention());

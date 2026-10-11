@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.WrongMethodTypeException;
 import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.EnumSet;
@@ -79,6 +80,7 @@ import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TestScalarFunctionAdapter
 {
@@ -181,6 +183,44 @@ class TestScalarFunctionAdapter
                 "generic",
                 methodType(Object.class, nCopies(GENERIC_ARGUMENT_TYPES.size(), Object.class)));
         verifyAllAdaptations(actualConvention, methodHandle, RETURN_TYPE, GENERIC_ARGUMENT_TYPES);
+    }
+
+    @Test
+    public void testAdaptRejectsNarrowingArgument()
+            throws Throwable
+    {
+        InvocationConvention actualConvention = new InvocationConvention(
+                nCopies(GENERIC_ARGUMENT_TYPES.size(), NEVER_NULL),
+                FAIL_ON_NULL,
+                false,
+                true);
+        MethodHandle methodHandle = lookup().findVirtual(
+                        Target.class,
+                        "generic",
+                        methodType(Object.class, nCopies(GENERIC_ARGUMENT_TYPES.size(), Object.class)))
+                .asType(methodType(Object.class, Target.class, int.class, Object.class, Object.class));
+
+        assertThatThrownBy(() -> verifyAllAdaptations(actualConvention, methodHandle, RETURN_TYPE, GENERIC_ARGUMENT_TYPES))
+                .isInstanceOf(WrongMethodTypeException.class);
+    }
+
+    @Test
+    public void testAdaptDoesNotDefaultNullToZero()
+            throws Throwable
+    {
+        InvocationConvention actualConvention = new InvocationConvention(
+                nCopies(GENERIC_ARGUMENT_TYPES.size(), BOXED_NULLABLE),
+                NULLABLE_RETURN,
+                false,
+                true);
+        MethodHandle methodHandle = lookup().findVirtual(
+                        Target.class,
+                        "generic",
+                        methodType(Object.class, nCopies(GENERIC_ARGUMENT_TYPES.size(), Object.class)))
+                .asType(methodType(Object.class, Target.class, long.class, Object.class, Object.class));
+
+        assertThatThrownBy(() -> verifyAllAdaptations(actualConvention, methodHandle, RETURN_TYPE, GENERIC_ARGUMENT_TYPES))
+                .isInstanceOf(NullPointerException.class);
     }
 
     @Test
@@ -642,7 +682,7 @@ class TestScalarFunctionAdapter
             return 33.33;
         }
         if (argumentType.equals(BIGINT)) {
-            return 42L;
+            return 4_294_967_301L;
         }
         if (argumentType.equals(VARCHAR)) {
             return Slices.utf8Slice("test");
